@@ -32,7 +32,9 @@ pub enum CustomErrorStatus {
     #[error("Bad Request")]
     BadRequest,
     #[error("Conflict")]
-    Conflict
+    Conflict,
+    #[error("Unauthorized")]
+    Unauthorized
 }
 
 
@@ -84,7 +86,8 @@ impl ResponseError for CustomError {
             CustomErrorStatus::Forbidden => StatusCode::FORBIDDEN,
             CustomErrorStatus::Unknown => StatusCode::INTERNAL_SERVER_ERROR,
             CustomErrorStatus::BadRequest => StatusCode::BAD_REQUEST,
-            CustomErrorStatus::Conflict => StatusCode::CONFLICT
+            CustomErrorStatus::Conflict => StatusCode::CONFLICT,
+            CustomErrorStatus::Unauthorized => StatusCode::UNAUTHORIZED
         }
     }
 
