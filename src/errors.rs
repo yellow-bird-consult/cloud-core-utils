@@ -20,6 +20,7 @@ macro_rules! safe_eject {
 /// * `Forbidden` - You are forbidden to access.
 /// * `Unknown` - An unknown internal error occurred.
 /// * `BadRequest` - The request was bad.
+/// * `Conflict` - The request conflicted with the current state of the server.
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum CustomErrorStatus {
     #[error("Requested file was not found")]
@@ -29,7 +30,9 @@ pub enum CustomErrorStatus {
     #[error("Unknown Internal Error")]
     Unknown,
     #[error("Bad Request")]
-    BadRequest
+    BadRequest,
+    #[error("Conflict")]
+    Conflict
 }
 
 
@@ -80,7 +83,8 @@ impl ResponseError for CustomError {
             CustomErrorStatus::NotFound  => StatusCode::NOT_FOUND,
             CustomErrorStatus::Forbidden => StatusCode::FORBIDDEN,
             CustomErrorStatus::Unknown => StatusCode::INTERNAL_SERVER_ERROR,
-            CustomErrorStatus::BadRequest => StatusCode::BAD_REQUEST
+            CustomErrorStatus::BadRequest => StatusCode::BAD_REQUEST,
+            CustomErrorStatus::Conflict => StatusCode::CONFLICT
         }
     }
 
