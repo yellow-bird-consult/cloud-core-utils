@@ -1,0 +1,95 @@
+//! Custom Error that Actix web automatically converts to a HTTP response.
+use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use std::fmt;
+
+
+#[macro_export]
+macro_rules! safe_eject {
+    ($e:expr, $err_status:expr) => {
+        $e.map_err(|x| CustomError::new(x.to_string(), $err_status))
+    };
+}
+
+
+/// The status of the custom error.
+/// 
+/// # Fields
+/// * `NotFound` - The request was not found.
+/// * `Forbidden` - You are forbidden to access.
+/// * `Unknown` - An unknown internal error occurred.
+/// * `BadRequest` - The request was bad.
+#[derive(Error, Debug, Serialize, Deserialize)]
+pub enum CustomErrorStatus {
+    #[error("Requested file was not found")]
+    NotFound,
+    #[error("You are forbidden to access requested file.")]
+    Forbidden,
+    #[error("Unknown Internal Error")]
+    Unknown,
+    #[error("Bad Request")]
+    BadRequest
+}
+
+
+/// The custom error that Actix web automatically converts to a HTTP response.
+/// 
+/// # Fields
+/// * `message` - The message of the error.
+/// * `status` - The status of the error.
+#[derive(Serialize, Deserialize, Debug, Error)]
+pub struct CustomError {
+    pub message: String,
+    pub status: CustomErrorStatus
+}
+
+impl CustomError {
+
+    /// Constructs a new error.
+    /// 
+    /// # Arguments
+    /// * `message` - The message of the error.
+    /// * `status` - The status of the error.
+    /// 
+    /// # Returns
+    /// * `CustomError` - The new error.
+    pub fn new(message: String, status: CustomErrorStatus) -> CustomError {
+        CustomError {
+            message,
+            status
+        }
+    }
+}
+
+impl fmt::Display for CustomError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+
+impl ResponseError for CustomError {
+    
+    /// Yields the status code for the error.
+    /// 
+    /// # Returns
+    /// * `StatusCode` - The status code for the error.
+    fn status_code(&self) -> StatusCode {
+        match self.status {
+            CustomErrorStatus::NotFound  => StatusCode::NOT_FOUND,
+            CustomErrorStatus::Forbidden => StatusCode::FORBIDDEN,
+            CustomErrorStatus::Unknown => StatusCode::INTERNAL_SERVER_ERROR,
+            CustomErrorStatus::BadRequest => StatusCode::BAD_REQUEST
+        }
+    }
+
+    /// Constructs a HTTP response for the error.
+    /// 
+    /// # Returns
+    /// * `HttpResponse` - The HTTP response for the error.
+    fn error_response(&self) -> HttpResponse {
+        let status_code = self.status_code();
+        HttpResponse::build(status_code).json(self.message.clone())
+    }
+}
