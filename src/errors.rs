@@ -21,7 +21,7 @@ macro_rules! safe_eject {
 /// * `Unknown` - An unknown internal error occurred.
 /// * `BadRequest` - The request was bad.
 /// * `Conflict` - The request conflicted with the current state of the server.
-#[derive(Error, Debug, Serialize, Deserialize)]
+#[derive(Error, Debug, Serialize, Deserialize, PartialEq)]
 pub enum CustomErrorStatus {
     #[error("Requested file was not found")]
     NotFound,
