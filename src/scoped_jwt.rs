@@ -13,10 +13,14 @@ use crate::config::GetConfigVariable;
 /// 
 /// # Fields
 /// * `user_id`: the ID of the user who's token it belongs to
+/// * `unique_id`: the unique ID of the session (should be different every time with new login sessions)
+/// * `role`: the role of the user for the login session
+/// * `expire_time`: the time the token expires
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScopedTokenBody {
     pub user_id: i32,
     pub unique_id: String,
+    pub role: String,
     pub expire_time: NaiveDateTime
 }
 
@@ -26,12 +30,14 @@ pub struct ScopedTokenBody {
 /// # Fields
 /// * `user_id`: the ID of the user who's token it belongs to
 /// * `unique_id`: the unique ID of the session
+/// * `role`: the role of the user for the login session
 /// * `expire_time`: the time the token expires
 /// * `handle`: the handle for the config struct to get config variables
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScopedJwToken<X: GetConfigVariable> {
     pub user_id: i32,
     pub unique_id: String,
+    pub role: String,
     pub expire_time: NaiveDateTime,
     pub handle: Option<X>
 }
@@ -84,6 +90,7 @@ impl <X: GetConfigVariable>ScopedJwToken<X> {
         let body = ScopedTokenBody {
             user_id: self.user_id,
             expire_time: self.expire_time,
+            role: self.role.clone(),
             unique_id: self.unique_id.clone()
         };
         match encode(&Header::default(), &body, &key) {
@@ -136,7 +143,8 @@ impl<X: GetConfigVariable> FromRequest for ScopedJwToken<X> {
                             user_id: token.user_id,
                             handle: None,
                             expire_time: token.expire_time,
-                            unique_id: token.unique_id
+                            unique_id: token.unique_id,
+                            role: token.role
                         };
                         if jwt.has_expired() {
                             return err(ErrorUnauthorized("token expired"))
@@ -199,14 +207,15 @@ mod tests {
 
     #[test]
     fn test_encode_decode() {
-        let expected_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJ1bmlxdWVfaWQiOiJ1bmlxdWVfaWQiLCJleHBpcmVfdGltZSI6IjIwMjEtMDEtMDdUMDY6MTM6MjAifQ.sm2pefMwYAio4QvdU3dOrCf6nRVnfmTmUN56egQhKso";
+        let expected_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJ1bmlxdWVfaWQiOiJ1bmlxdWVfaWQiLCJyb2xlIjoiQURNSU4iLCJleHBpcmVfdGltZSI6IjIwMjEtMDEtMDdUMDY6MTM6MjAifQ.6LSBSlnPotlYQ17qVQfCBMr0iFBGx1eq9pf8sFvwg7A";
         let seconds_since_epoch = 1_610_000_000;
         let naive_date_time = NaiveDateTime::from_timestamp_opt(seconds_since_epoch, 0).unwrap();
         let mut jwt = ScopedJwToken { 
             user_id: 1,
             handle: Some(FakeConfig),
             expire_time: naive_date_time,
-            unique_id: "unique_id".to_string()
+            unique_id: "unique_id".to_string(),
+            role: "ADMIN".to_string()
         };
         let token = jwt.encode().unwrap();
         assert_eq!(token, expected_token);
@@ -214,10 +223,11 @@ mod tests {
 
     #[test]
     fn test_decode_token() {
-        let expected_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJ1bmlxdWVfaWQiOiJ1bmlxdWVfaWQiLCJleHBpcmVfdGltZSI6IjIwMjMtMTItMTJUMjM6NDM6MDMuNzEyMjc2In0.z_-G5d3gXhxHwhVyMPehbcw_E6vXo8OCzdQgGyde7pI";
+        let expected_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJ1bmlxdWVfaWQiOiJ1bmlxdWVfaWQiLCJyb2xlIjoiQURNSU4iLCJleHBpcmVfdGltZSI6IjIwMjEtMDEtMDdUMDY6MTM6MjAifQ.6LSBSlnPotlYQ17qVQfCBMr0iFBGx1eq9pf8sFvwg7A";
         let decoded_token = ScopedJwToken::<FakeConfig>::decode(expected_token).unwrap();
         assert_eq!(decoded_token.user_id, 1);
         assert_eq!(decoded_token.unique_id, "unique_id");
+        assert_eq!(decoded_token.role, "ADMIN");
     }
 
     #[actix_web::test]
@@ -237,7 +247,8 @@ mod tests {
             user_id: 1,
             handle: Some(FakeConfig),
             expire_time: Utc::now().naive_utc(),
-            unique_id: "unique_id".to_string()
+            unique_id: "unique_id".to_string(),
+            role: "ADMIN".to_string()
         };
         jwt.update_time();
         let token = jwt.encode().unwrap();
@@ -259,7 +270,8 @@ mod tests {
             user_id: 1,
             handle: Some(FakeConfig),
             expire_time: dt,
-            unique_id: "unique_id".to_string()
+            unique_id: "unique_id".to_string(),
+            role: "ADMIN".to_string()
         };
         let token = jwt.encode().unwrap();
         
