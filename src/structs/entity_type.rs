@@ -52,7 +52,7 @@ impl Serialize for EntityType {
 impl EntityType {
 
     /// Returns the string representation of the entity type.
-    pub fn as_str(&self) -> &'static str {
+    pub fn into_str(&self) -> &'static str {
         match self {
             EntityType::Department => "department",
             EntityType::Institution => "institution",
@@ -60,8 +60,8 @@ impl EntityType {
     }
 
     /// Returns the entity type from the string representation.
-    pub fn to_string(&self) -> String {
-        self.as_str().to_string()
+    pub fn into_string(&self) -> String {
+        self.into_str().to_string()
     }
 }
 
