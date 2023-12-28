@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use futures::future::{Ready, ok, err};
 use chrono::{DateTime, Utc, NaiveDateTime};
 use crate::config::GetConfigVariable;
+use crate::structs::entity_type::EntityType;
 
 
 /// The attributes extracted from the scoped auth token hiding in the header.
@@ -15,12 +16,16 @@ use crate::config::GetConfigVariable;
 /// * `user_id`: the ID of the user who's token it belongs to
 /// * `unique_id`: the unique ID of the session (should be different every time with new login sessions)
 /// * `role`: the role of the user for the login session
+/// * `entity_id`: the ID of the entity the user is associated with
+/// * `entity_type`: the type of entity the user is associated with
 /// * `expire_time`: the time the token expires
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScopedTokenBody {
     pub user_id: i32,
     pub unique_id: String,
-    pub role: String,
+    pub role: Option<String>,
+    pub entity_id: Option<i32>,
+    pub entity_type: Option<EntityType>,
     pub expire_time: NaiveDateTime
 }
 
@@ -31,13 +36,17 @@ pub struct ScopedTokenBody {
 /// * `user_id`: the ID of the user who's token it belongs to
 /// * `unique_id`: the unique ID of the session
 /// * `role`: the role of the user for the login session
+/// * `entity_id`: the ID of the entity the user is associated with
+/// * `entity_type`: the type of entity the user is associated with
 /// * `expire_time`: the time the token expires
 /// * `handle`: the handle for the config struct to get config variables
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScopedJwToken<X: GetConfigVariable> {
     pub user_id: i32,
     pub unique_id: String,
-    pub role: String,
+    pub role: Option<String>,
+    pub entity_id: Option<i32>,
+    pub entity_type: Option<EntityType>,
     pub expire_time: NaiveDateTime,
     pub handle: Option<X>
 }
@@ -91,6 +100,8 @@ impl <X: GetConfigVariable>ScopedJwToken<X> {
             user_id: self.user_id,
             expire_time: self.expire_time,
             role: self.role.clone(),
+            entity_id: self.entity_id,
+            entity_type: self.entity_type.clone(),
             unique_id: self.unique_id.clone()
         };
         match encode(&Header::default(), &body, &key) {
@@ -144,7 +155,9 @@ impl<X: GetConfigVariable> FromRequest for ScopedJwToken<X> {
                             handle: None,
                             expire_time: token.expire_time,
                             unique_id: token.unique_id,
-                            role: token.role
+                            role: token.role,
+                            entity_id: token.entity_id,
+                            entity_type: token.entity_type
                         };
                         if jwt.has_expired() {
                             return err(ErrorUnauthorized("token expired"))
@@ -207,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode() {
-        let expected_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJ1bmlxdWVfaWQiOiJ1bmlxdWVfaWQiLCJyb2xlIjoiQURNSU4iLCJleHBpcmVfdGltZSI6IjIwMjEtMDEtMDdUMDY6MTM6MjAifQ.6LSBSlnPotlYQ17qVQfCBMr0iFBGx1eq9pf8sFvwg7A";
+        let expected_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJ1bmlxdWVfaWQiOiJ1bmlxdWVfaWQiLCJyb2xlIjoiQURNSU4iLCJlbnRpdHlfaWQiOm51bGwsImVudGl0eV90eXBlIjpudWxsLCJleHBpcmVfdGltZSI6IjIwMjEtMDEtMDdUMDY6MTM6MjAifQ.FH8xRtgA1eDYPXH2IpYD7kvWz5mQI4gS5UrpnTyIGCI";
         let seconds_since_epoch = 1_610_000_000;
         let naive_date_time = NaiveDateTime::from_timestamp_opt(seconds_since_epoch, 0).unwrap();
         let mut jwt = ScopedJwToken { 
@@ -215,7 +228,9 @@ mod tests {
             handle: Some(FakeConfig),
             expire_time: naive_date_time,
             unique_id: "unique_id".to_string(),
-            role: "ADMIN".to_string()
+            role: Some("ADMIN".to_string()),
+            entity_id: None,
+            entity_type: None
         };
         let token = jwt.encode().unwrap();
         assert_eq!(token, expected_token);
@@ -223,11 +238,11 @@ mod tests {
 
     #[test]
     fn test_decode_token() {
-        let expected_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJ1bmlxdWVfaWQiOiJ1bmlxdWVfaWQiLCJyb2xlIjoiQURNSU4iLCJleHBpcmVfdGltZSI6IjIwMjEtMDEtMDdUMDY6MTM6MjAifQ.6LSBSlnPotlYQ17qVQfCBMr0iFBGx1eq9pf8sFvwg7A";
+        let expected_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoxLCJ1bmlxdWVfaWQiOiJ1bmlxdWVfaWQiLCJyb2xlIjoiQURNSU4iLCJlbnRpdHlfaWQiOm51bGwsImVudGl0eV90eXBlIjpudWxsLCJleHBpcmVfdGltZSI6IjIwMjEtMDEtMDdUMDY6MTM6MjAifQ.FH8xRtgA1eDYPXH2IpYD7kvWz5mQI4gS5UrpnTyIGCI";
         let decoded_token = ScopedJwToken::<FakeConfig>::decode(expected_token).unwrap();
         assert_eq!(decoded_token.user_id, 1);
         assert_eq!(decoded_token.unique_id, "unique_id");
-        assert_eq!(decoded_token.role, "ADMIN");
+        assert_eq!(decoded_token.role, Some("ADMIN".to_string()));
     }
 
     #[actix_web::test]
@@ -248,7 +263,9 @@ mod tests {
             handle: Some(FakeConfig),
             expire_time: Utc::now().naive_utc(),
             unique_id: "unique_id".to_string(),
-            role: "ADMIN".to_string()
+            role: Some("ADMIN".to_string()),
+            entity_id: None,
+            entity_type: None
         };
         jwt.update_time();
         let token = jwt.encode().unwrap();
@@ -271,7 +288,9 @@ mod tests {
             handle: Some(FakeConfig),
             expire_time: dt,
             unique_id: "unique_id".to_string(),
-            role: "ADMIN".to_string()
+            role: Some("ADMIN".to_string()),
+            entity_id: None,
+            entity_type: None
         };
         let token = jwt.encode().unwrap();
         
