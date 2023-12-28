@@ -4,6 +4,7 @@ use serde::{
     ser::Serializer,
     de::{self, Deserializer},
 };
+use crate::errors::{CustomError, CustomErrorStatus};
 
 
 /// The different entities that can issue licenses.
@@ -62,6 +63,18 @@ impl EntityType {
     /// Returns the entity type from the string representation.
     pub fn into_string(&self) -> String {
         self.into_str().to_string()
+    }
+
+    /// Returns the entity type from the string representation.
+    pub fn from_string(input: String) -> Result<EntityType, CustomError> {
+        match input.to_lowercase().as_str() {
+            "department" => Ok(EntityType::Department),
+            "institution" => Ok(EntityType::Institution),
+            _ => Err(CustomError::new(
+                format!("unknown entity type: {}, cannot construct entity type from string", input),
+                CustomErrorStatus::BadRequest,
+            ))
+        }
     }
 }
 
