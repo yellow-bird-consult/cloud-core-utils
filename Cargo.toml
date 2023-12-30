@@ -6,18 +6,23 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-actix-web = "4.4.0"
 jsonwebtoken = "9.2.0"
-chrono = {version = "0.4.31", features = ["serde"]}
+chrono = { version = "0.4.31", features = ["serde"] }
 futures = "0.3.29"
 serde = { version = "1.0.193", features = ["derive"] }
 bcrypt = "0.15.0"
 thiserror = "1.0.50"
 
+# optional dependencies
+actix-web = { version = "4.4.0", optional = true }
+
 [dev-dependencies]
 serde_json = "1.0.108"
-
 
 [lib]
 name = "cloud_core_utils"
 path = "src/lib.rs"
+
+[features]
+default = ["actix"]
+actix = ["actix-web"]

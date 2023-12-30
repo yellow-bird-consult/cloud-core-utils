@@ -1,13 +1,22 @@
 //! defines the middleware for a JWT that expires after a certain amount of time.
-use actix_web::dev::Payload;
-use actix_web::{Error, FromRequest, HttpRequest};
-use actix_web::error::ErrorUnauthorized;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use futures::future::{Ready, ok, err};
 use chrono::{DateTime, Utc, NaiveDateTime};
 use crate::config::GetConfigVariable;
 use crate::structs::entity_type::EntityType;
+
+
+#[cfg(feature = "actix")]
+use futures::future::{Ready, ok, err};
+
+#[cfg(feature = "actix")]
+use actix_web::{
+    dev::Payload, 
+    Error, 
+    FromRequest, 
+    HttpRequest, 
+    error::ErrorUnauthorized
+};
 
 
 /// The attributes extracted from the scoped auth token hiding in the header.
@@ -131,6 +140,7 @@ impl <X: GetConfigVariable>ScopedJwToken<X> {
 }
 
 
+#[cfg(feature = "actix")]
 impl<X: GetConfigVariable> FromRequest for ScopedJwToken<X> {
     type Error = Error;
     type Future = Ready<Result<ScopedJwToken<X>, Error>>;
@@ -183,13 +193,20 @@ impl<X: GetConfigVariable> FromRequest for ScopedJwToken<X> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{HttpRequest, HttpResponse, test::TestRequest, web, App};
-    use actix_web::http::header::ContentType;
-    use actix_web::test::{init_service, call_service};
-    use actix_web::{self, body};
-    use serde_json::json;
     use serde::{Deserialize, Serialize};
+
+    #[cfg(feature = "actix")]
+    use serde_json::json;
+
+    #[cfg(feature = "actix")]
     use chrono::{DateTime, Utc};
+
+    #[cfg(feature = "actix")]
+    use actix_web::{
+        self, body, web, App, HttpRequest, HttpResponse, 
+        http::header::ContentType, 
+        test::{TestRequest, init_service, call_service},
+    };
 
     struct FakeConfig;
 
@@ -210,6 +227,7 @@ mod tests {
         pub user_id: i32,
     }
 
+    #[cfg(feature = "actix")]
     async fn pass_handle(token: ScopedJwToken<FakeConfig>, _: HttpRequest) -> HttpResponse {
         return HttpResponse::Ok().json(json!({
             "user_id": token.user_id,
@@ -245,6 +263,7 @@ mod tests {
         assert_eq!(decoded_token.role, Some("ADMIN".to_string()));
     }
 
+    #[cfg(feature = "actix")]
     #[actix_web::test]
     async fn test_no_token_request() {
         let app = init_service(App::new().route("/", web::get().to(pass_handle))).await;
@@ -256,6 +275,7 @@ mod tests {
         assert_eq!("401", resp.status().as_str());
     }
 
+    #[cfg(feature = "actix")]
     #[actix_web::test]
     async fn test_pass_check() {
         let mut jwt = ScopedJwToken { 
@@ -280,6 +300,7 @@ mod tests {
         assert_eq!("200", resp.status().as_str());
     }
 
+    #[cfg(feature = "actix")]
     #[actix_web::test]
     async fn test_expired_check() {
         let dt = DateTime::parse_from_str("1983 Apr 13 12:09:14.274 +0000", "%Y %b %d %H:%M:%S%.3f %z").unwrap().naive_utc();

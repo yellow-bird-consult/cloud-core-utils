@@ -1,8 +1,10 @@
 //! Custom Error that Actix web automatically converts to a HTTP response.
-use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use std::fmt;
+
+#[cfg(feature = "actix")]
+use actix_web::{HttpResponse, error::ResponseError, http::StatusCode};
 
 
 #[macro_export]
@@ -74,6 +76,7 @@ impl fmt::Display for CustomError {
 }
 
 
+#[cfg(feature = "actix")]
 impl ResponseError for CustomError {
     
     /// Yields the status code for the error.
